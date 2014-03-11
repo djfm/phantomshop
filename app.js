@@ -9,6 +9,7 @@ var port = 3000;
 
 var config = require('./config/config.js');
 var mongoClient = require('mongodb').MongoClient;
+var fs = require('fs');
 
 var Installer = require('./lib/installer.js');
 
@@ -62,21 +63,41 @@ app.set('view engine', 'handlebars');
  * Routes
  */
 // Index Page
-app.get('/', function(request, response, next) {
+app.get('/', function (request, response) {
     response.render('index');
 });
 
-app.get('/install', function(request, response, next) {
+app.get('/install', function (request, response) {
     response.render('install');
 });
 
-app.post('/install', function(request, response, next) {
+app.post('/install', function (request, response) {
 
     var installer = new Installer(config, request.body);
 
-    installer.install(function(error){
+    installer.install(function () {
         response.render('after-install');
-    })
+    });
+
+});
+
+app.get('/shops', function (request, response) {
+
+    config.mongo.collection('shops').find({shopName: {$exists: true}}, function (err, data) {
+        data.toArray(function (err, maybeShops) {
+            var shops = [];
+            for (var i = 0; i < maybeShops.length; i++)
+            {
+                var shop = maybeShops[i];
+                if (fs.existsSync(shop.path))
+                {
+                    shop.url = config.rootURL + '/' + shop.folderName;
+                    shops.push(shop);
+                }
+            }
+            response.render('shops', {shops: shops});
+        });
+    });
 
 });
 
@@ -84,7 +105,7 @@ app.post('/install', function(request, response, next) {
  * Start it up
  */
 
-mongoClient.connect("mongodb://127.0.0.1:27017/phantomshop", function(err, db){
+mongoClient.connect('mongodb://127.0.0.1:27017/phantomshop', function (err, db) {
     if (!err)
     {
         config.mongo = db;
