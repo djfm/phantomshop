@@ -1,10 +1,10 @@
 {{#each shops}}
 	<div class="row">
 		<div class="col-lg-4">
-			<a target="_blank" class="label label-success" href="{{this.url}}">{{this.shopName}} ({{this.folderName}})</a> 
-			<form method="POST" action="/install-shop">
-				<button class="btn btn-mini btn-default" href="">install</button>
-			</form>
+			<a class="label label-success" href="/shops/{{this.folderName}}">{{this.shopName}} ({{this.folderName}})</a> 
+			<!--form class="inline" method="POST" action="/install-shop">
+				<button class="btn btn-xs btn-default" href="">install</button>
+			</form-->
 		</div>
 	</div>
 {{/each}}

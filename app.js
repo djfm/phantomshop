@@ -12,6 +12,7 @@ var mongoClient = require('mongodb').MongoClient;
 var fs = require('fs');
 
 var Installer = require('./lib/installer.js');
+var Shop = require('./lib/shop.js');
 
 /*
  * Use Handlebars for templating
@@ -91,7 +92,7 @@ app.get('/shops', function (request, response) {
                 var shop = maybeShops[i];
                 if (fs.existsSync(shop.path))
                 {
-                    shop.url = config.rootURL + '/' + shop.folderName;
+                    shop = new Shop(config, shop);
                     shops.push(shop);
                 }
             }
@@ -101,11 +102,89 @@ app.get('/shops', function (request, response) {
 
 });
 
+var withShop = function withShop (folderName, callback)
+{
+    config.mongo.collection('shops').find({'folderName': folderName}, function (err, data) {
+        if (err)
+        {
+            callback("Shop query failed.", null);
+        }
+        else
+        {
+            data.toArray(function (err, data) {
+                if (err)
+                {
+                    callback('Could not convert Shop data to array.', null);
+                }
+                else
+                {
+                    var maybeShop = data[0];
+                    if (maybeShop)
+                    {
+                        var shop = new Shop(config, maybeShop);
+                        callback(null, shop);
+                    }
+                    else
+                    {
+                        callback("Could not find shop.", null);
+                    }
+                }
+            });
+        }
+    });
+};
+
+app.get('/shops/:folderName', function (request, response) {
+    withShop(request.param('folderName'), function (err, shop) {
+        response.render('shop', {shop: shop});
+    });
+});
+
+app.post('/start/:folderName', function (request, response) {
+    var folderName = request.param('folderName');
+    withShop(folderName, function (err, shop) {
+        shop.startServer(function () {
+            response.redirect('/shops/' + folderName);
+        });
+    });
+});
+
+app.post('/stop/:folderName', function (request, response) {
+    var folderName = request.param('folderName');
+    withShop(folderName, function (err, shop) {
+        shop.stopServer(function () {
+            response.redirect('/shops/' + folderName);
+        });
+    });
+});
+
 /*
  * Start it up
  */
 
-mongoClient.connect('mongodb://127.0.0.1:27017/phantomshop', function (err, db) {
+config.appRoot = __dirname;
+
+config.runningServers = {};
+
+function cleanup(andExit)
+{
+    console.log("Cleaning up!");
+    for (var s in config.runningServers)
+    {
+        var child = config.runningServers[s];
+        child.kill();
+    }
+
+    if (andExit !== false)
+    {
+        process.exit();
+    }
+}
+
+process.on('SIGUSR2', cleanup);
+process.on('SIGINT', cleanup);
+
+mongoClient.connect('mongodb://' + config.mongoHost + ':' + config.mongoPort + '/' + config.mongoDatabase, function (err, db) {
     if (!err)
     {
         config.mongo = db;
