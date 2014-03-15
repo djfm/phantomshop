@@ -1,0 +1,34 @@
+<h1>Shop: {{shop.shopName}}</h1>
+
+<div class="form-horizontal">
+  <div class="form-group">
+    <label class="control-label col-lg-3">Shop Path</label>
+    <div class="col-lg-9">
+      <p class="form-control-static">{{shop.path}}</p>
+    </div>
+  </div>
+    {{#if shop.serverStarted}}
+      <div class="form-group">
+        <label class="control-label col-lg-3">Navigation</label>
+        <div class="col-lg-9">
+          <a class="btn btn-default btn-lg" href="{{shop.installerURL}}">Go to Installer</a>
+          <a class="btn btn-default btn-lg" href="{{shop.backOfficeURL}}">Go to Back-Office</a>
+          <a class="btn btn-default btn-lg" href="{{shop.frontOfficeURL}}">Go to Front-Office</a>
+        </div>
+      </div>
+    {{/if}}
+  <div class="form-group">
+    <label class="control-label col-lg-3">Server Control</label>
+    <div class="col-lg-9">
+      {{#if shop.serverStarted}}
+        <form method="POST" action="/stop/{{shop.folderName}}">
+          <button class="btn btn-warning btn-lg">Stop Server</button>
+        </form>
+      {{else}}
+         <form method="POST" action="/start/{{shop.folderName}}">
+          <button class="btn btn-default btn-lg">Start Server</button>
+        </form>
+      {{/if}}
+    </div>
+  </div>
+</div>

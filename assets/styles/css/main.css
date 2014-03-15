@@ -7,3 +7,18 @@ form.inline
 {
 	display: inline-block;
 }
+
+input.ng-invalid
+{
+	color: red;
+}
+
+input.ng-valid
+{
+	color: green;
+}
+
+.ng-pristine.ng-valid
+{
+	color: inherit;
+}

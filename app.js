@@ -10,6 +10,7 @@ var port = 3000;
 var config = require('./config/config.js');
 var mongoClient = require('mongodb').MongoClient;
 var fs = require('fs');
+var rest = require('restless');
 
 var Installer = require('./lib/installer.js');
 var Shop = require('./lib/shop.js');
@@ -64,12 +65,32 @@ app.set('view engine', 'handlebars');
  * Routes
  */
 // Index Page
+
+app.post('/validuri', function (request, response) {
+    var uri = request.param('uri');
+
+    if (/^\w+:\/\//.exec(uri))
+    {
+        rest.head(uri, function (error, data) {
+            response.send(error ? false : true);
+        });
+    }
+    else if (/^\//.exec(uri))
+    {
+        response.send(fs.existsSync(uri));
+    }
+    else
+    {
+        response.send(false);
+    }
+});
+
 app.get('/', function (request, response) {
     response.render('index');
 });
 
 app.get('/install', function (request, response) {
-    response.render('install');
+    response.render('install', {repository: config.prestaShopRepository});
 });
 
 app.post('/install', function (request, response) {
@@ -77,7 +98,7 @@ app.post('/install', function (request, response) {
     var installer = new Installer(config, request.body);
 
     installer.install(function () {
-        response.render('after-install');
+        response.redirect('/shops/' + installer.folderName);
     });
 
 });
@@ -165,6 +186,7 @@ app.post('/stop/:folderName', function (request, response) {
 config.appRoot = __dirname;
 
 config.runningServers = {};
+config.portsInUse = {};
 
 function cleanup(andExit)
 {
@@ -172,7 +194,7 @@ function cleanup(andExit)
     for (var s in config.runningServers)
     {
         var child = config.runningServers[s];
-        child.kill();
+        child.process.kill();
     }
 
     if (andExit !== false)
