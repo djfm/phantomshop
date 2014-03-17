@@ -64,7 +64,7 @@ var waitFor = function (selector, delay, interval, timeout)
 {
 	delay = delay || defaultDelay;
 	interval = delay || defaultDelay;
-	timeout = timeout || 120000;
+	timeout = timeout || 300000; // 5 minutes timeout by default
 
 	var deferred = new Deferred();
 
@@ -86,7 +86,7 @@ var waitFor = function (selector, delay, interval, timeout)
 			else if (elapsed > timeout)
 			{
 				clearInterval(interval);
-				deferred.reject('Tmed out after ' + timout + 'ms.');
+				deferred.reject('Timed out after ' + timeout + 'ms.');
 			}
 
 		}, interval);
