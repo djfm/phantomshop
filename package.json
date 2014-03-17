@@ -7,7 +7,8 @@
     "express3-handlebars": "0.4.x",
     "mongodb": "*",
     "restless": "0.0.10",
-    "promised-io": "^0.3.4"
+    "promised-io": "^0.3.4",
+    "minimist": "0.0.8"
   },
   "devDependencies": {
     "grunt": "~0.4.1",

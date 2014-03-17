@@ -1,5 +1,5 @@
 module.exports = {
-	rootDirectory: '/var/usr/www',
+	rootDirectory: '/var/www/phantomshop',
 	startPort: 20000,
 	prestaShopRepository: 'https://github.com/PrestaShop/PrestaShop',
 	mongoHost: '127.0.0.1',

@@ -245,7 +245,7 @@ var setNonTechnicalParameters = function setNonTechnicalParameters ()
 
 /* Fourth Step */
 
-var setTechnicalParameters = function setTechnicalParameters ()
+var setTechnicalParameters = function setTechnicalParameters()
 {
 	var ok = true;
 	ok = ok && setValue('#dbServer', settings.mysqlHost);
@@ -270,7 +270,7 @@ var setTechnicalParameters = function setTechnicalParameters ()
 	return deferred.promise;
 };
 
-var checkDB = function checkDB ()
+var checkDB = function checkDB()
 {
 	var deferred = new Deferred();
 	waitFor('#btTestDB').then(function () {
@@ -323,10 +323,10 @@ page.open(argv.url, function () {
 		willTakeScreenshot('installer', 'finished')
 	], settings.language)
 	.then(function () {
-		console.log("OK! :)");
+		console.log('OK! :)');
 		phantom.exit();
 	}, function (error) {
-		console.log("Some step failed :/");
+		console.log('Some step failed :/');
 		phantom.exit(1);
 	});
 });
