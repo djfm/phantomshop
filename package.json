@@ -6,7 +6,8 @@
     "express": "~3.4.0",
     "express3-handlebars": "0.4.x",
     "mongodb": "*",
-    "restless": "0.0.10"
+    "restless": "0.0.10",
+    "promised-io": "^0.3.4"
   },
   "devDependencies": {
     "grunt": "~0.4.1",

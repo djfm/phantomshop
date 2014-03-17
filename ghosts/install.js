@@ -1,5 +1,8 @@
 'use strict';
 var system = require('system');
+var Deferred = require("promised-io/promise").Deferred;
+var when = require("promised-io/promise");
+var seq = require("promised-io/promise").seq;
 
 var argv = require('minimist')(system.args);
 
@@ -7,59 +10,97 @@ var page = require('webpage').create();
 
 var defaultDelay = 500;
 
-//console.log(JSON.stringify(argv));
+var settings = {
+	// Non technical info
+	language: argv.language || 'fr',
+	shopName: argv.shopName || 'My Shop',
+	activityId: argv.activityId || 16, // Telecoms
+	dbMode: argv.dbMode || 'full', // also possible: 'lite' => No demo products,
+	countryCode: argv.countryCode || 'fr',
+	timeZone: argv.timeZone || 'Europe/Paris',
+	firstname: argv.firstname || 'John',
+	lastname: argv.lastname || 'Doe',
+	email: argv.email || 'pub@prestashop.com',
+	password: argv.password || '123456789',
+	newsletter: argv.newsletter || true,
 
-/* Helper Functions */
+	// Technical info
 
-var whenReady = function whenReady (callback, delay)
-{
-	var intMs = defaultDelay;
-
-	function checkRepeatedly ()
-	{
-		var interval = setInterval(function () {
-
-			console.log("Checking if page ready...");
-
-			var state = page.evaluate (function () {
-				return document.readyState;
-			});
-
-			if (state === 'complete')
-			{
-				console.log('Page is ready! :)');
-				clearInterval(interval);
-				callback();
-			}
-		}, intMs);
-	};
-
-	if (delay === undefined)
-	{
-		delay = intMs;
-	}
-
-	console.log('Will check for ready in ' + delay + ' then every ' + intMs + 'ms')
-
-	setTimeout(checkRepeatedly, delay);
+	mysqlHost: argv.mysqlHost || 'localhost',
+	mysqlDatabase: argv.mysqlDatabase || 'phantomshop',
+	mysqlUser: argv.mysqlUser || 'phantomshop',
+	mysqlPassword: argv.mysqlPassword || '',
+	tablesPrefix: null // defined later
 };
 
-var withElement = function withElement (selector, callback, delay)
+settings.tablesPrefix = argv.tablesPrefix || settings.shopName.replace(/[^\w]+/g, '').toLowerCase();
+
+
+var screenshotNumber = {};
+var takeScreenshot = function takeScreenshot (category, name)
 {
-	whenReady(function () {
+	var n = screenshotNumber[category] = (screenshotNumber[category] || 0) + 1;
+
+	if (argv.screenshots)
+	{
+		page.render(argv.screenshots + '/' + category + '_' + n + '_' + name + '.png');
+	}
+};
+
+var willTakeScreenshot = function (category, name)
+{
+	return function () {
+		var deferred = new Deferred();
+
+		takeScreenshot(category, name);
+
+		deferred.resolve();
+
+		return deferred.promise;
+	};
+};
+
+var waitFor = function (selector, delay, interval, timeout)
+{
+	delay = delay || defaultDelay;
+	interval = delay || defaultDelay;
+	timeout = timeout || 120000;
+
+	var deferred = new Deferred();
+
+	// wait a bit before polling
+	setTimeout(function () {
+		var elapsed = 0;
 		var interval = setInterval(function () {
-			console.log('Checking if ' + selector + ' is visible...');
+			elapsed += interval;
+
 			var ok = page.evaluate(function (selector) {
 				return $(selector).is(':visible');
 			}, selector);
+
 			if (ok)
 			{
-				console.log('Found element: ' + selector);
 				clearInterval(interval);
-				callback();
+				deferred.resolve();
 			}
-		}, defaultDelay);
+			else if (elapsed > timeout)
+			{
+				clearInterval(interval);
+				deferred.reject('Tmed out after ' + timout + 'ms.');
+			}
+
+		}, interval);
+
 	}, delay);
+
+	return deferred.promise;
+};
+
+var willWaitFor = function willWaitFor(selector, delay, interval, timeout)
+{
+	return function () {
+		return waitFor(selector, delay, interval, timeout);
+	};
 };
 
 /* Shortcuts to do stuff inside the host page */
@@ -85,6 +126,7 @@ var setValueChosen = function setValue (selector, value)
 		var ok = select.val(value).val() == value;
 		if (ok)
 		{
+			select.change();
 			select.trigger('chosen:updated');
 		}
 		return ok;
@@ -100,144 +142,192 @@ var checkCheckBox = function checkCheckBox (selector, checked)
 
 /* Main Program */
 
-var url = argv.url;
+var clickNext = function clickNext ()
+{
+	var deferred = new Deferred();
 
-var settings = {
+	trigger('#btNext', 'click');
 
-	// Non technical info
+	deferred.resolve();
 
-	shopName: argv.shopName || "My Shop",
-	activityId: argv.activityId || 16, // Telecoms
-	dbMode: argv.dbMode || 'full', // also possible: 'lite' => No demo products,
-	countryCode: argv.countryCode || 'fr',
-	timeZone: argv.timeZone || 'Europe/Paris',
-	firstname: argv.firstname || 'John',
-	lastname: argv.lastname || 'Doe',
-	email: argv.email || 'pub@prestashop.com',
-	password: argv.password || '123456789',
-	newsletter: argv.newsletter || true,
-
-	// Technical info
-
-	mysqlHost: argv.mysqlHost || 'localhost',
-	mysqlDatabase: argv.mysqlDatabase || 'phantomshop',
-	mysqlUser: argv.mysqlUser || 'phantomshop',
-	mysqlPassword: argv.mysqlPassword || '',
-	tablesPrefix: null // defined later
+	return deferred.promise;
 };
 
-settings.tablesPrefix = argv.tablesPrefix || settings.shopName.replace(/[^\w]+/g, '').toLowerCase();
+/* First Step */
 
-var chooseLanguage = function chooseLanguage(code)
+var chooseLanguage = function chooseLanguage (code)
 {
-	var languages = $.makeArray($('#langList option').map(function (i, option) {
-		return $(option).val();
-	}));
+	var error = page.evaluate(function (code) {
+		var languages = $.makeArray($('#langList option').map(function (i, option) {
+			return $(option).val();
+		}));
 
-	if (languages.indexOf(code) >= 0)
+		if (languages.indexOf(code) >= 0)
+		{
+			$('#langList').val(code).change();
+			return null;
+		}
+		else
+		{
+			return 'Could not find language: ' + code;
+		}
+	}, code);
+
+	var deferred = new Deferred();
+
+	if (error)
 	{
-		$('#langList').val(code).change();
-		return null;
+		deferred.reject(error);
 	}
 	else
 	{
-		return 'Could not find language: ' + code;
+		return waitFor('#btNext');
 	}
+
+	return deferred.promise;
 };
+
+/* Second Step */
 
 var acceptLicense = function acceptLicense ()
 {
-	return $('#set_license').click().val() == 1;
+	var ok = page.evaluate(function () {
+		return $('#set_license').click().val() == 1;
+	});
+
+	var deferred = new Deferred();
+
+	if (ok)
+	{
+		deferred.resolve();
+	}
+	else
+	{
+		deferred.reject('Could not accept license.');
+	}
+
+	return deferred.promise;
+}
+
+/* Third Step */
+
+var setNonTechnicalParameters = function setNonTechnicalParameters ()
+{
+	var ok = true;
+
+	ok = ok && setValue('#infosShop', settings.shopName);
+	ok = ok && setValueChosen('#infosActivity', settings.activityId);
+	ok = ok && setValue('input[name=db_mode]', settings.dbMode);
+	ok = ok && setValueChosen('#infosCountry', settings.countryCode);
+	ok = ok && setValueChosen('#infosTimezone', settings.timeZone);
+	ok = ok && setValue('#infosFirstname', settings.firstname);				
+	ok = ok && setValue('#infosName', settings.lastname);				
+	ok = ok && setValue('#infosEmail', settings.email);				
+	ok = ok && setValue('#infosPassword', settings.password);				
+	ok = ok && setValue('#infosPasswordRepeat', settings.password);
+	ok = ok && checkCheckBox('#infosNotification', settings.newsletter);
+
+	var deferred = new Deferred();
+
+	if (ok)
+	{
+		setTimeout(function () {
+			deferred.resolve();
+		}, defaultDelay);
+	}
+	else
+	{
+		deferred.reject();
+	}
+
+	return deferred.promise;
+}
+
+/* Fourth Step */
+
+var setTechnicalParameters = function setTechnicalParameters ()
+{
+	var ok = true;
+	ok = ok && setValue('#dbServer', settings.mysqlHost);
+	ok = ok && setValue('#dbName', settings.mysqlDatabase);
+	ok = ok && setValue('#dbLogin', settings.mysqlUser);
+	ok = ok && setValue('#dbPassword', settings.mysqlPassword);
+	ok = ok && setValue('#db_prefix', settings.tablesPrefix);
+
+	var deferred = new Deferred();
+
+	if (ok)
+	{
+		setTimeout(function () {
+			deferred.resolve();
+		}, defaultDelay);
+	}
+	else
+	{
+		deferred.reject();
+	}
+
+	return deferred.promise;
 };
 
-page.open(url, function () {
-	var err = page.evaluate(chooseLanguage, 'de');
-
-	withElement('#btNext', function () {
-
-		if (argv.screenshots)
-		{
-			page.render(argv.screenshots + '/install_1_language.png');
-		}
-		trigger('#btNext', 'click');
-		
-		withElement('#set_license', function () {
-			var license_accepted = page.evaluate(acceptLicense);
-
-			console.log('License accepted?', license_accepted);
-
-			if (argv.screenshots)
-			{
-				page.render(argv.screenshots + '/install_2_license.png');
-			}
-
-			trigger('#btNext', 'click');
-
-			withElement('#btNext', function () {
-
-				var ok = true;
-
-				ok = ok && setValue('#infosShop', settings.shopName);
-				ok = ok && setValueChosen('#infosActivity', settings.activityId);
-				ok = ok && setValue('input[name=db_mode]', settings.dbMode);
-				ok = ok && setValueChosen('#infosCountry', settings.countryCode);
-				ok = ok && setValueChosen('#infosTimezone', settings.timeZone);
-				ok = ok && setValue('#infosFirstname', settings.firstname);				
-				ok = ok && setValue('#infosName', settings.lastname);				
-				ok = ok && setValue('#infosEmail', settings.email);				
-				ok = ok && setValue('#infosPassword', settings.password);				
-				ok = ok && setValue('#infosPasswordRepeat', settings.password);
-				ok = ok && checkCheckBox('#infosNotification', settings.newsletter);
-
-				console.log("Non technical info set?", ok);
-
-				// Wait a bit to take screenshot, in case jQuery chosen hasn't finished updating the UI
-				setTimeout(function () {
-					if (argv.screenshots)
-					{
-						page.render(argv.screenshots + '/install_3_shop_settings.png');
-					}
-
-					var clicked = trigger('#btNext', 'click') == 1;
-
-					console.log ('Next button clicked?', clicked);
-
-					withElement('#dbServer', function () {
-
-						ok = ok && setValue('#dbServer', settings.mysqlHost);
-						ok = ok && setValue('#dbName', settings.mysqlDatabase);
-						ok = ok && setValue('#dbLogin', settings.mysqlUser);
-						ok = ok && setValue('#dbPassword', settings.mysqlPassword);
-						ok = ok && setValue('#db_prefix', settings.tablesPrefix);
-
-						console.log("Technical info set?", ok);
-
-						withElement('#btTestDB', function () {
-							trigger('#btTestDB', 'click');
-							withElement('#dbResultCheck', function () {
-								if (argv.screenshots)
-								{
-									page.render(argv.screenshots + '/install_4_technical_settings.png');
-								}
-								withElement('#btNext', function () {
-									trigger('#btNext', 'click');
-
-									withElement('a.BO', function () {
-										window.setTimeout(function () {
-											if (argv.screenshots)
-											{
-												page.render(argv.screenshots + '/install_5_finished.png');
-											}
-											phantom.exit();
-										}, defaultDelay);
-									});
-								});
-							});
-						});
-					});
-				}, defaultDelay);
+var checkDB = function checkDB ()
+{
+	var deferred = new Deferred();
+	waitFor('#btTestDB').then(function () {
+		trigger('#btTestDB', 'click');
+		waitFor('#dbResultCheck').then(function () {
+			waitFor('#btNext').then(function () {
+				deferred.resolve();
 			});
 		});
+	});
+
+	return deferred.promise;
+};
+
+var wait = function wait(delay)
+{
+	return function () {
+		var deferred = new Deferred();
+
+		setTimeout(function () {
+			deferred.resolve();
+		}, delay);
+
+		return deferred.promise;
+	};
+};
+
+page.open(argv.url, function () {
+	seq([
+		chooseLanguage,
+		willTakeScreenshot('installer', 'language'),
+		clickNext,
+		willWaitFor('#set_license'),
+		acceptLicense,
+		willTakeScreenshot('installer', 'license'),
+		clickNext,
+		willWaitFor('#btNext'),
+		setNonTechnicalParameters,
+		wait(defaultDelay), // Wait before taking screenshot so that jQuery UI has updated
+		willTakeScreenshot('installer', 'infos'),
+		clickNext,
+		willWaitFor('#dbServer'),
+		setTechnicalParameters,
+		willTakeScreenshot('installer', 'technical_settings'),
+		checkDB,
+		willTakeScreenshot('installer', 'check_db'),
+		clickNext,
+		willWaitFor('a.BO'),
+		wait(defaultDelay),
+		willTakeScreenshot('installer', 'finished')
+	], settings.language)
+	.then(function () {
+		console.log("OK! :)");
+		phantom.exit();
+	}, function (error) {
+		console.log("Some step failed :/");
+		phantom.exit(1);
 	});
 });
 
