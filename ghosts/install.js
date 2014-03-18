@@ -1,10 +1,14 @@
 'use strict';
-var system = require('system');
-var Deferred = require("promised-io/promise").Deferred;
-var when = require("promised-io/promise");
-var seq = require("promised-io/promise").seq;
+var system		= require('system');
+var Deferred    = require('promised-io/promise').Deferred;
+var seq			= require('promised-io/promise').seq;
+var argv        = require('minimist')(system.args);
+var components  = require('./tools/components.js');
+var I           = components.actions;
+var U           = components.glue;
+var A           = require('./tools/actions.js');
 
-var argv = require('minimist')(system.args);
+var $ = null;
 
 var page = require('webpage').create();
 
@@ -36,117 +40,11 @@ var settings = {
 settings.tablesPrefix = argv.tablesPrefix || settings.shopName.replace(/[^\w]+/g, '').toLowerCase();
 
 
-var screenshotNumber = {};
-var takeScreenshot = function takeScreenshot (category, name)
-{
-	var n = screenshotNumber[category] = (screenshotNumber[category] || 0) + 1;
-
-	if (argv.screenshots)
-	{
-		page.render(argv.screenshots + '/' + category + '_' + n + '_' + name + '.png');
-	}
-};
-
-var willTakeScreenshot = function (category, name)
-{
-	return function () {
-		var deferred = new Deferred();
-
-		takeScreenshot(category, name);
-
-		deferred.resolve();
-
-		return deferred.promise;
-	};
-};
-
-var waitFor = function (selector, delay, interval, timeout)
-{
-	delay = delay || defaultDelay;
-	interval = delay || defaultDelay;
-	timeout = timeout || 300000; // 5 minutes timeout by default
-
-	var deferred = new Deferred();
-
-	// wait a bit before polling
-	setTimeout(function () {
-		var elapsed = 0;
-		var interval = setInterval(function () {
-			elapsed += interval;
-
-			var ok = page.evaluate(function (selector) {
-				return $(selector).is(':visible');
-			}, selector);
-
-			if (ok)
-			{
-				clearInterval(interval);
-				deferred.resolve();
-			}
-			else if (elapsed > timeout)
-			{
-				clearInterval(interval);
-				deferred.reject('Timed out after ' + timeout + 'ms.');
-			}
-
-		}, interval);
-
-	}, delay);
-
-	return deferred.promise;
-};
-
-var willWaitFor = function willWaitFor(selector, delay, interval, timeout)
-{
-	return function () {
-		return waitFor(selector, delay, interval, timeout);
-	};
-};
-
-/* Shortcuts to do stuff inside the host page */
-
-var trigger = function trigger (selector, event)
-{
-	return page.evaluate(function (selector, event) {
-		return $(selector).trigger(event).length;
-	}, selector, event);
-};
-
-var setValue = function setValue (selector, value)
-{
-	return page.evaluate(function (selector, value) {
-		return $(selector).val(value).val() == value;
-	}, selector, value);
-};
-
-var setValueChosen = function setValue (selector, value)
-{
-	return page.evaluate(function (selector, value) {
-		var select = $(selector);
-		var ok = select.val(value).val() == value;
-		if (ok)
-		{
-			select.change();
-			select.trigger('chosen:updated');
-		}
-		return ok;
-	}, selector, value);
-};
-
-var checkCheckBox = function checkCheckBox (selector, checked)
-{
-	return page.evaluate(function (selector, checked) {
-		return $(selector).prop('checked', checked).is(':checked') == checked;
-	}, selector, checked);
-};
-
-/* Main Program */
-
-var clickNext = function clickNext ()
+var clickNext = function clickNext()
 {
 	var deferred = new Deferred();
 
-	trigger('#btNext', 'click');
+	A.trigger(page, '#btNext', 'click');
 
 	deferred.resolve();
 
@@ -155,8 +53,9 @@ var clickNext = function clickNext ()
 
 /* First Step */
 
-var chooseLanguage = function chooseLanguage (code)
+var chooseLanguage = function chooseLanguage(code)
 {
+	console.log('Trying to select installer language: ' + code);
 	var error = page.evaluate(function (code) {
 		var languages = $.makeArray($('#langList option').map(function (i, option) {
 			return $(option).val();
@@ -181,7 +80,7 @@ var chooseLanguage = function chooseLanguage (code)
 	}
 	else
 	{
-		return waitFor('#btNext');
+		return U.waitFor(page, '#btNext');
 	}
 
 	return deferred.promise;
@@ -191,6 +90,7 @@ var chooseLanguage = function chooseLanguage (code)
 
 var acceptLicense = function acceptLicense ()
 {
+	console.log('Going to accept license...');
 	var ok = page.evaluate(function () {
 		return $('#set_license').click().val() == 1;
 	});
@@ -213,19 +113,21 @@ var acceptLicense = function acceptLicense ()
 
 var setNonTechnicalParameters = function setNonTechnicalParameters ()
 {
+	console.log('Setting non technical parameters...');
+
 	var ok = true;
 
-	ok = ok && setValue('#infosShop', settings.shopName);
-	ok = ok && setValueChosen('#infosActivity', settings.activityId);
-	ok = ok && setValue('input[name=db_mode]', settings.dbMode);
-	ok = ok && setValueChosen('#infosCountry', settings.countryCode);
-	ok = ok && setValueChosen('#infosTimezone', settings.timeZone);
-	ok = ok && setValue('#infosFirstname', settings.firstname);				
-	ok = ok && setValue('#infosName', settings.lastname);				
-	ok = ok && setValue('#infosEmail', settings.email);				
-	ok = ok && setValue('#infosPassword', settings.password);				
-	ok = ok && setValue('#infosPasswordRepeat', settings.password);
-	ok = ok && checkCheckBox('#infosNotification', settings.newsletter);
+	ok = ok && A.setValue(page, '#infosShop', settings.shopName);
+	ok = ok && A.setValueChosen(page, '#infosActivity', settings.activityId);
+	ok = ok && A.setValue(page, 'input[name=db_mode]', settings.dbMode);
+	ok = ok && A.setValueChosen(page, '#infosCountry', settings.countryCode);
+	ok = ok && A.setValueChosen(page, '#infosTimezone', settings.timeZone);
+	ok = ok && A.setValue(page, '#infosFirstname', settings.firstname);
+	ok = ok && A.setValue(page, '#infosName', settings.lastname);
+	ok = ok && A.setValue(page, '#infosEmail', settings.email);
+	ok = ok && A.setValue(page, '#infosPassword', settings.password);
+	ok = ok && A.setValue(page, '#infosPasswordRepeat', settings.password);
+	ok = ok && A.checkCheckBox(page, '#infosNotification', settings.newsletter);
 
 	var deferred = new Deferred();
 
@@ -241,18 +143,20 @@ var setNonTechnicalParameters = function setNonTechnicalParameters ()
 	}
 
 	return deferred.promise;
-}
+};
 
 /* Fourth Step */
 
 var setTechnicalParameters = function setTechnicalParameters()
 {
+	console.log('Setting technical parameters...');
+
 	var ok = true;
-	ok = ok && setValue('#dbServer', settings.mysqlHost);
-	ok = ok && setValue('#dbName', settings.mysqlDatabase);
-	ok = ok && setValue('#dbLogin', settings.mysqlUser);
-	ok = ok && setValue('#dbPassword', settings.mysqlPassword);
-	ok = ok && setValue('#db_prefix', settings.tablesPrefix);
+	ok = ok && A.setValue(page, '#dbServer', settings.mysqlHost);
+	ok = ok && A.setValue(page, '#dbName', settings.mysqlDatabase);
+	ok = ok && A.setValue(page, '#dbLogin', settings.mysqlUser);
+	ok = ok && A.setValue(page, '#dbPassword', settings.mysqlPassword);
+	ok = ok && A.setValue(page, '#db_prefix', settings.tablesPrefix);
 
 	var deferred = new Deferred();
 
@@ -272,11 +176,13 @@ var setTechnicalParameters = function setTechnicalParameters()
 
 var checkDB = function checkDB()
 {
+	console.log('Checking database...');
 	var deferred = new Deferred();
-	waitFor('#btTestDB').then(function () {
-		trigger('#btTestDB', 'click');
-		waitFor('#dbResultCheck').then(function () {
-			waitFor('#btNext').then(function () {
+	U.waitFor(page, '#btTestDB').then(function () {
+		A.trigger(page, '#btTestDB', 'click');
+		U.waitFor(page, '#dbResultCheck').then(function () {
+			U.waitFor(page, '#btNext').then(function () {
+				console.log('Seems fine, will now install!');
 				deferred.resolve();
 			});
 		});
@@ -285,49 +191,41 @@ var checkDB = function checkDB()
 	return deferred.promise;
 };
 
-var wait = function wait(delay)
+if (!argv.url)
 {
-	return function () {
-		var deferred = new Deferred();
-
-		setTimeout(function () {
-			deferred.resolve();
-		}, delay);
-
-		return deferred.promise;
-	};
-};
+	phantom.exit(components.errors.INVALID_URL);
+}
 
 page.open(argv.url, function () {
 	seq([
 		chooseLanguage,
-		willTakeScreenshot('installer', 'language'),
+		I.willTakeScreenshot(page, argv.screenshots, '1_installer_language'),
 		clickNext,
-		willWaitFor('#set_license'),
+		U.willWaitFor(page, '#set_license', 'visible'),
 		acceptLicense,
-		willTakeScreenshot('installer', 'license'),
+		I.willTakeScreenshot(page, argv.screenshots, '2_installer_license'),
 		clickNext,
-		willWaitFor('#btNext'),
+		U.willWaitFor(page, '#btNext', 'visible'),
 		setNonTechnicalParameters,
-		wait(defaultDelay), // Wait before taking screenshot so that jQuery UI has updated
-		willTakeScreenshot('installer', 'infos'),
+		U.willDelay(), // Wait before taking screenshot so that jQuery UI has updated
+		I.willTakeScreenshot(page, argv.screenshots, '3_installer_infos'),
 		clickNext,
-		willWaitFor('#dbServer'),
+		U.willWaitFor(page, '#dbServer', 'visible'),
 		setTechnicalParameters,
-		willTakeScreenshot('installer', 'technical_settings'),
+		I.willTakeScreenshot(page, argv.screenshots, '4_installer_technical_settings'),
 		checkDB,
-		willTakeScreenshot('installer', 'check_db'),
+		I.willTakeScreenshot(page, argv.screenshots, '5_installer_check_db'),
 		clickNext,
-		willWaitFor('a.BO'),
-		wait(defaultDelay),
-		willTakeScreenshot('installer', 'finished')
+		U.willWaitFor(page, 'a.BO', 'visible'),
+		U.willDelay(),
+		I.willTakeScreenshot(page, argv.screenshots, '6_installer_done')
 	], settings.language)
 	.then(function () {
-		console.log('OK! :)');
-		phantom.exit();
+		console.log('Seems installed! :)');
+		phantom.exit(components.errors.SUCCESS);
 	}, function (error) {
-		console.log('Some step failed :/');
-		phantom.exit(1);
+		console.log('Some step failed with: ' + error);
+		phantom.exit(components.errors.UNSPECIFIED_ERROR);
 	});
 });
 

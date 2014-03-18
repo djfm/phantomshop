@@ -2,10 +2,26 @@
 
 module.exports = {};
 
+var $ = null;
+
 module.exports.setValue = function (page, selector, value)
 {
 	return page.evaluate(function (selector, value) {
 		return $(selector).val(value).val() == value;
+	}, selector, value);
+};
+
+module.exports.setValueChosen = function (page, selector, value)
+{
+	return page.evaluate(function (selector, value) {
+		var select = $(selector);
+		var ok = select.val(value).val() == value;
+		if (ok)
+		{
+			select.change();
+			select.trigger('chosen:updated');
+		}
+		return ok;
 	}, selector, value);
 };
 
