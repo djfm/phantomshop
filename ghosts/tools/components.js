@@ -77,7 +77,50 @@ module.exports.glue.willWaitFor = willWaitFor = function willWaitFor(page, selec
 	};
 };
 
+var delay;
+module.exports.glue.delay = delay = function (ms)
+{
+	var d = new Deferred();
+	setTimeout(function () {
+		d.resolve();
+	}, ms || module.exports.settings.defaultDelay);
+	return d.promise;
+};
+
+var willDelay;
+module.exports.glue.willDelay = function (ms)
+{
+	return function (ms)
+	{
+		delay(ms);
+	};
+};
+
 module.exports.actions = {};
+
+var takeScreenShot;
+module.exports.actions.takeScreenshot = takeScreenshot = function (page, name)
+{
+
+};
+
+var clickMenuItem;
+module.exports.actions.clickMenuItem = clickMenuItem = function (page, controllerName)
+{
+	return page.evaluate(function (controllerName) {
+		var links = $('nav ul.menu a');
+		for(var i = 0; i < links.length; i++)
+		{
+			var m, a = $(links[i]);
+			if((m = /\bcontroller=(\w+)\b/.exec(a.attr('href'))) && m[1] == controllerName)
+			{
+				a.click();
+				return true;
+			}
+		}
+		return false;
+	}, controllerName);
+};
 
 var logInBO;
 module.exports.actions.logInBO = logInBO = function (page, params)

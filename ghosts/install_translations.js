@@ -17,10 +17,13 @@ page.open(argv.url, function () {
 		components.actions.willLogInBO(page, {
 			email: 'pub@prestashop.com',
 			password: '123456789'
-		})
+		}),
+		components.actions.clickMenuItem(page, 'AdminTranslations'),
 	]).then(function () {
+		console.log('Good!');
 		phantom.exit(components.errors.SUCCESS);
 	}, function () {
+		console.log('Bad!');
 		phantom.exit(components.errors.UNSPECIFIED_ERROR);
 	});
 });

@@ -22,13 +22,3 @@ module.exports.trigger = function (page, selector, e)
 		return $(selector).trigger(e).length;
 	}, selector, e);
 };
-
-module.exports.clickMenuItem = function (page, controllerName)
-{
-	return page.evaluate(function (controllerName) {
-		$('nav ul.menu a').each(function (i, a) {
-			a = $(a);
-			console.log(a.attr('href'));
-		});
-	}, controllerName);
-};
