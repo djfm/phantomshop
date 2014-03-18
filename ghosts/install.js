@@ -80,6 +80,7 @@ var chooseLanguage = function chooseLanguage(code)
 	}
 	else
 	{
+		console.log('Waiting for "next" button...');
 		return U.waitFor(page, '#btNext');
 	}
 
