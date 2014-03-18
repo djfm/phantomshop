@@ -3,5 +3,6 @@ node_modules
 .sass-cache
 app/bower_components
 www
+screenshots
 assets/screenshots
 repos

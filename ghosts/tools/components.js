@@ -9,6 +9,7 @@ var $ = function () {
 };
 
 module.exports = {};
+module.exports.tools = {};
 
 module.exports.settings = {
 	defaultDelay: 500
@@ -22,8 +23,8 @@ module.exports.errors = {
 
 module.exports.glue = {};
 
-var waitFor;
-module.exports.glue.waitFor = waitFor = function (page, selector, kind, delay, pollingInterval, timeout)
+
+var metaWaitFor = function metaWaitFor(page, predicate, delay, pollingInterval, timeout)
 {
 	delay = delay || module.exports.settings.defaultDelay;
 	pollingInterval = pollingInterval || module.exports.settings.defaultDelay;
@@ -37,23 +38,17 @@ module.exports.glue.waitFor = waitFor = function (page, selector, kind, delay, p
 		var interval = setInterval(function () {
 			elapsed += interval;
 
-			console.log('Polling for ' + selector + ' (every ' + pollingInterval + 'ms) ...');
+			// Callback on poll
+			if (predicate[2])
+			{
+				predicate[2]();
+			}
 
-			var ok = page.evaluate(function (selector, kind) {
-				if (kind === 'visible')
-				{
-					return $(selector).is(':visible');
-				}
-				else
-				{
-					return $(selector).length > 0;
-				}
-			}, selector, kind);
+			var ok = page.evaluate(predicate[0], predicate[1]);
 
 			if (ok)
 			{
 				clearInterval(interval);
-				console.log('Got ' + selector + '!');
 				deferred.resolve();
 			}
 			else if (elapsed > timeout)
@@ -69,57 +64,145 @@ module.exports.glue.waitFor = waitFor = function (page, selector, kind, delay, p
 	return deferred.promise;
 };
 
+var waitFor;
+module.exports.glue.waitFor = waitFor = function (page, selector, kind, delay, pollingInterval, timeout)
+{
+	return metaWaitFor(page, [function (args) {
+		if (args.kind === 'visible')
+		{
+			return $(args.selector).is(':visible');
+		}
+		else
+		{
+			return $(args.selector).length > 0;
+		}
+	}, {selector: selector, kind: kind}], delay, pollingInterval, timeout);
+};
+
 var willWaitFor;
-module.exports.glue.willWaitFor = willWaitFor = function willWaitFor(page, selector, kind, delay, interval, timeout)
+module.exports.glue.willWaitFor = willWaitFor = function (page, selector, kind, delay, interval, timeout)
 {
 	return function () {
 		return module.exports.glue.waitFor(page, selector, kind, delay, interval, timeout);
 	};
 };
 
+var waitForURLParameter;
+module.exports.glue.waitForURLParameter = waitForURLParameter = function (parameter, value, delay, pollingInterval, timeout)
+{
+	return metaWaitFor(page, [function (args) {
+		var parts = window.location.href.split('?');
+		if (parts.length === 2)
+		{
+			var pairs = (parts[1].split('#')[0]).split('&');
+			var params = {};
+			for (var i = 0; i < pairs.length; i++)
+			{
+				var splat = pairs[i].split('=');
+				params[splat[0]] = splat[1];
+			}
+			if (args.value)
+			{
+				return params[args.parameter] == args.value;
+			}
+			else
+			{
+				return args.parameter in params;
+			}
+		}
+		return false;
+	}, {parameter: parameter, value: value}, function () {console.log('URL is ' + page.url);}], delay, pollingInterval, timeout);
+};
+
+var willWaitForUrlParameter;
+module.exports.glue.willWaitForUrlParameter = function (parameter, value)
+{
+	return function () {
+		waitForURLParameter(parameter, value);
+	};
+};
+
 var delay;
 module.exports.glue.delay = delay = function (ms)
 {
+	ms = ms || module.exports.settings.defaultDelay;
+	console.log('Waiting for ' + ms + 'ms...');
 	var d = new Deferred();
-	setTimeout(function () {
-		d.resolve();
-	}, ms || module.exports.settings.defaultDelay);
+	setTimeout(d.resolve, ms);
 	return d.promise;
 };
 
 var willDelay;
-module.exports.glue.willDelay = function (ms)
+module.exports.glue.willDelay = willDelay = function (ms)
 {
-	return function (ms)
+	return function ()
 	{
-		delay(ms);
+		return delay(ms);
 	};
 };
 
 module.exports.actions = {};
 
-var takeScreenShot;
-module.exports.actions.takeScreenshot = takeScreenshot = function (page, name)
+var takeScreenshot;
+module.exports.actions.takeScreenshot = takeScreenshot = function (page, dir, name)
 {
+	var d = new Deferred();
+	if (dir)
+	{
+		var path = dir + '/' + name + '.png';
+		page.render(path);
+	}
 
+	d.resolve();
+	return d.promise;
+};
+
+var willTakeScreenshot;
+module.exports.actions.willTakeScreenshot = willTakeScreenshot = function (page, dir, name)
+{
+	return function () {
+		takeScreenshot(page, dir, name);
+	};
 };
 
 var clickMenuItem;
 module.exports.actions.clickMenuItem = clickMenuItem = function (page, controllerName)
 {
-	return page.evaluate(function (controllerName) {
+	var deferred = new Deferred();
+
+	var ok = page.evaluate(function (controllerName) {
 		var links = $('nav ul.menu a');
-		for(var i = 0; i < links.length; i++)
+		for (var i = 0; i < links.length; i++)
 		{
 			var m, a = $(links[i]);
-			if((m = /\bcontroller=(\w+)\b/.exec(a.attr('href'))) && m[1] == controllerName)
+			if ((m = /\bcontroller=(\w+)\b/.exec(a.attr('href'))) && m[1] === controllerName)
 			{
-				a.click();
+				window.location = a.attr('href');
 				return true;
 			}
 		}
 		return false;
 	}, controllerName);
+
+	if (ok)
+	{
+		deferred.resolve();
+	}
+	else
+	{
+		deferred.reject();
+	}
+
+	return deferred.promise;
+};
+
+var willClickMenuItem;
+module.exports.actions.willClickMenuItem = willClickMenuItem = function (page, controllerName)
+{
+	return function ()
+	{
+		return clickMenuItem(page, controllerName);
+	};
 };
 
 var logInBO;
@@ -163,5 +246,74 @@ module.exports.actions.willLogInBO = willLogInBO = function (page, params)
 {
 	return function () {
 		return logInBO(page, params);
+	};
+};
+
+var listLanguages;
+module.exports.tools.listLanguages = listLanguages = function (page)
+{
+	return page.evaluate(function () {
+		return $.makeArray($('#params_import_language option').map(function (i, o) {
+			return $(o).attr('value').split('|')[0];
+		}));
+	});
+};
+
+// Prerequisite: be on the translations page!
+var installLanguage;
+module.exports.actions.installLanguage = installLanguage = function (page, code)
+{
+	console.log('Trying to install language: ' + code);
+	var d = new Deferred();
+
+	var ok = page.evaluate(function (code) {
+		var options = $('#params_import_language option');
+		for (var i = 0; i < options.length; i++)
+		{
+			var option = $(options[i]);
+			var optionCode = option.attr('value').split('|')[0];
+			if (optionCode === code)
+			{
+				var select = $('#params_import_language');
+				if (select.val(option.attr('value')).val() === option.attr('value'))
+				{
+					select.change();
+					select.trigger('chosen:updated');
+					$('button[name=submitAddLanguage]').click();
+					return true;
+				}
+			}
+		}
+		return false;
+	}, code);
+
+	if (ok)
+	{
+		console.log('Found language on page: ' + code);
+		waitForURLParameter('conf').then(function () {
+			console.log('Successfully installed language: ' + code);
+			d.resolve();
+		}, function () {
+			var err = 'Could not install language: ' + code;
+			console.log(err);
+			d.reject(err);
+		});
+	}
+	else
+	{
+		var err = 'Could not find language: ' + code;
+		console.log(err);
+		d.reject(err);
+	}
+
+	return d.promise;
+};
+
+var willInstallLanguage;
+module.exports.actions.willInstallLanguage = willInstallLanguage = function (page, code)
+{
+	return function ()
+	{
+		return installLanguage(page, code);
 	};
 };
