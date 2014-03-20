@@ -4,21 +4,26 @@
  * Express Dependencies
  */
 var express = require('express');
-var app = express();
-var port = 3000;
+var app     = express();
+var port    = 3000;
 
-var config = require('./config/config.js');
+var config      = require('./config/config.js');
 var mongoClient = require('mongodb').MongoClient;
-var fs = require('fs');
-var rest = require('restless');
+var fs          = require('fs');
+var rest        = require('restless');
 
-var Installer = require('./lib/installer.js');
-var Shop = require('./lib/shop.js');
+var Installer   = require('./lib/installer.js');
+var Shop        = require('./lib/shop.js');
+var Repos       = require('./lib/repos.js');
+var Deferred    = require('promised-io/promise').Deferred;
+var seq         = require('promised-io/promise').seq;
+
+
 
 /*
  * Use Handlebars for templating
  */
-var exphbs = require('express3-handlebars');
+var exphbs      = require('express3-handlebars');
 
 // For gzip compression
 app.use(express.compress());
@@ -59,6 +64,47 @@ if (process.env.NODE_ENV === 'production') {
 // Set Handlebars
 app.set('view engine', 'handlebars');
 
+/*
+ * Helpers
+ */
+
+ var withShop = function(folderName)
+ {
+    var collection = config.mongo.collection('shops');
+
+    var d = new Deferred();
+
+    collection.find({'folderName': folderName}, function (err, data) {
+         if (err)
+         {
+             d.reject('Could not make query to find shop: ' + folderName);
+         }
+         else
+         {
+             data.toArray(function (err, data) {
+                 if (err)
+                 {
+                     d.reject('Could not get query results to find shop: ' + folderName);
+                 }
+                 else
+                 {
+                     var maybeShop = data[0];
+                     if (maybeShop)
+                     {
+                         var shop = new Shop(config, maybeShop);
+                         d.resolve(shop);
+                     }
+                     else
+                     {
+                         d.reject('Could not get query results to find shop: ' + folderName);
+                     }
+                 }
+             });
+         }
+     });
+
+     return d.promise;
+ };
 
 
 /*
@@ -94,11 +140,15 @@ app.get('/install', function (request, response) {
 });
 
 app.post('/install', function (request, response) {
+    
+    response.connection.setTimeout(0);
 
     var installer = new Installer(config, request.body);
 
-    installer.install(function () {
-        response.redirect('/shops/' + installer.folderName);
+    installer.install().then(function () {
+        response.redirect('/shops/' + installer.folderName);  
+    }, function (error) {
+        response.render('oops', {error: error});
     });
 
 });
@@ -123,59 +173,48 @@ app.get('/shops', function (request, response) {
 
 });
 
-var withShop = function withShop (folderName, callback)
-{
-    config.mongo.collection('shops').find({'folderName': folderName}, function (err, data) {
-        if (err)
-        {
-            callback("Shop query failed.", null);
-        }
-        else
-        {
-            data.toArray(function (err, data) {
-                if (err)
-                {
-                    callback('Could not convert Shop data to array.', null);
-                }
-                else
-                {
-                    var maybeShop = data[0];
-                    if (maybeShop)
-                    {
-                        var shop = new Shop(config, maybeShop);
-                        callback(null, shop);
-                    }
-                    else
-                    {
-                        callback("Could not find shop.", null);
-                    }
-                }
-            });
-        }
-    });
-};
-
 app.get('/shops/:folderName', function (request, response) {
-    withShop(request.param('folderName'), function (err, shop) {
+    withShop(request.param('folderName')).then(function (shop) {
         response.render('shop', {shop: shop});
+    }, function (error) {
+        response.render('oops', {error: error});
     });
 });
 
 app.post('/start/:folderName', function (request, response) {
-    var folderName = request.param('folderName');
-    withShop(folderName, function (err, shop) {
-        shop.startServer(function () {
-            response.redirect('/shops/' + folderName);
-        });
+    seq([
+        withShop,
+        function (shop)
+        {
+            return shop.startServer();
+        }
+    ], request.param('folderName')).then(function (shop) {
+        response.redirect('/shops/' + shop.folderName);
+    }, function (error) {
+        response.render('oops', {error: error});
     });
 });
 
 app.post('/stop/:folderName', function (request, response) {
-    var folderName = request.param('folderName');
-    withShop(folderName, function (err, shop) {
-        shop.stopServer(function () {
-            response.redirect('/shops/' + folderName);
-        });
+    seq([
+        withShop,
+        function (shop)
+        {
+            return shop.stopServer();
+        }
+    ], request.param('folderName')).then(function (shop) {
+        response.redirect('/shops/' + shop.folderName);
+    }, function (error) {
+        response.render('oops', {error: error});
+    });
+});
+
+app.get('/repos', function (request, response) {
+    Repos.list(config.appRoot + '/repos').then(function (repos) {
+        console.log(repos);
+        response.render('repos', {repos: repos});
+    }, function (error) {
+        response.render('oops', {error: error});
     });
 });
 

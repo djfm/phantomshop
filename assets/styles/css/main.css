@@ -22,3 +22,8 @@ input.ng-valid
 {
 	color: inherit;
 }
+
+img.fullwidth
+{
+	width: 100%;
+}

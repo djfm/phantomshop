@@ -8,7 +8,8 @@
     "mongodb": "*",
     "restless": "0.0.10",
     "promised-io": "^0.3.4",
-    "minimist": "0.0.8"
+    "minimist": "0.0.8",
+    "portfinder": "^0.2.1"
   },
   "devDependencies": {
     "grunt": "~0.4.1",
