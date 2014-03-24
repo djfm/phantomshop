@@ -225,7 +225,7 @@ app.get('/repos', function (request, response) {
 });
 
 app.get('/repos/:name', function (request, response) {
-    Repos.buildRepo(config.appRoot + '/repos/' + request.param('name')).then(function (repo) {
+    Repos.buildRepo(config.appRoot + '/repos/' + request.param('name'), {fetch: true}).then(function (repo) {
         response.render('repo', {repo: repo});
     }, function (error) {
         response.render('oops', {error: error});
