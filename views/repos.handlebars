@@ -1,0 +1,67 @@
+<h2>Available repositories</h2>
+
+{{#if repos}}
+	<p>Here are the repositories currently available.</p>
+	<table class="table">
+		<tr>
+			<th>Name</th>
+			<th>Branch</th>
+			<th>Remote</th>
+			<th>Remote Branch</th>
+			<th>Distance</th>
+			<th></th>
+		</tr>
+		{{#each repos}}
+			<tr>
+				<td>
+					{{this.getName}}
+				</td>
+				<td>
+					{{this.getBranch}}
+				</td>
+				<td>
+					{{this.getRemote}}
+				</td>
+				<td>
+					{{this.getRemoteBranch}}
+				</td>
+				<td>
+					{{this.getDistance}}
+				</td>
+				<td>
+					<a class="btn btn-default" href="/repos/{{this.getName}}">Details</a>
+				</td>
+			</tr>
+		{{/each}}
+	</table>
+{{else}}
+	<p>There is no repository available, use the form below to add some!</p>
+{{/if}}
+
+<h2>Add New repository</h2>
+
+<form method="POST" action="/repos" class="form-horizontal">
+	<div class="form-group">
+		<label for="name" class="col-lg-3 control-label">Name</label>
+		<div class="col-lg-9">
+			<input required id="name" type="text" name="name" ng-model="name" class="form-control">
+		</div>
+	</div>
+	<div class="form-group">
+		<label for="repository" class="col-lg-3 control-label">Repository</label>
+		<div class="col-lg-9">
+			<input required id="repository" type="text" name="repository" ng-model="repository" validuri class="form-control">
+		</div>
+	</div>
+	<div class="form-group">
+		<label for="branch" class="col-lg-3 control-label">Branch</label>
+		<div class="col-lg-9">
+			<input required id="branch" type="text" name="branch" ng-model="branch" ng-change="updateShopName()" class="form-control">
+		</div>
+	</div>
+	<div class="form-group">
+		<div class="col-lg-9 col-lg-offset-3">
+			<button class="btn btn-default" type="submit">Add &amp; Clone</button>
+		</div>
+	</div>
+</form>

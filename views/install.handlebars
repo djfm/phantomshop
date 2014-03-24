@@ -2,13 +2,11 @@
 	<div class="form-group">
 		<label for="repository" class="col-lg-3 control-label">Repository</label>
 		<div class="col-lg-9">
-			<input id="repository" type="text" name="repository" ng-model="repository" validuri class="form-control">
-		</div>
-	</div>
-	<div class="form-group">
-		<label for="branch" class="col-lg-3 control-label">Branch</label>
-		<div class="col-lg-9">
-			<input id="branch" type="text" name="branch" ng-model="branch" ng-change="updateShopName()" class="form-control">
+			<select class="form-control" id="repository" name="repository" ng-model="repository">
+				{{#each reposList}}
+					<option value="{{this.value}}">{{this.name}}</option>
+				{{/each}}
+			</select>
 		</div>
 	</div>
 	<div class="form-group">
@@ -39,15 +37,14 @@
 <script>
 	function InstallFormCtrl($scope)
 	{
-		$scope.shopName = $scope.branch = "1.6";
-		$scope.repository = '{{repository}}';
+		$scope.branch = "1.6";
 
 		$scope.installLanguage = 'en';
 		$scope.installCountry = 'us';
 
 		$scope.updateShopName = function()
 		{
-			$scope.shopName = "My " + $scope.installLanguage + '_' + $scope.installCountry + ' ' + $scope.branch + " Shop";
+			$scope.shopName = "My " + $scope.installLanguage + '_' + $scope.installCountry + ' Shop';
 		}
 
 		$scope.updateShopName();

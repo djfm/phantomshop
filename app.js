@@ -14,6 +14,7 @@ var rest        = require('restless');
 
 var Installer   = require('./lib/installer.js');
 var Shop        = require('./lib/shop.js');
+var git         = require('./lib/git.js');
 var Repos       = require('./lib/repos.js');
 var Deferred    = require('promised-io/promise').Deferred;
 var seq         = require('promised-io/promise').seq;
@@ -136,7 +137,13 @@ app.get('/', function (request, response) {
 });
 
 app.get('/install', function (request, response) {
-    response.render('install', {repository: config.prestaShopRepository});
+    Repos.list(config.appRoot + '/repos').then(function (repos) {
+        response.render('install', {reposList: repos.map(function (repo) {
+            return {value: repo.getName(), name: repo.getLongName()};
+        })});
+    }, function (error) {
+        response.render('oops', {error: error});
+    })
 });
 
 app.post('/install', function (request, response) {
@@ -211,8 +218,41 @@ app.post('/stop/:folderName', function (request, response) {
 
 app.get('/repos', function (request, response) {
     Repos.list(config.appRoot + '/repos').then(function (repos) {
-        console.log(repos);
         response.render('repos', {repos: repos});
+    }, function (error) {
+        response.render('oops', {error: error});
+    });
+});
+
+app.get('/repos/:name', function (request, response) {
+    Repos.buildRepo(config.appRoot + '/repos/' + request.param('name')).then(function (repo) {
+        response.render('repo', {repo: repo});
+    }, function (error) {
+        response.render('oops', {error: error});
+    });
+});
+
+app.post('/repos/:name/pull', function (request, response) {
+    
+    response.connection.setTimeout(0);
+
+    Repos.buildRepo(config.appRoot + '/repos/' + request.param('name')).then(function (repo) {
+        repo.pull().then(function () {
+            response.redirect('/repos/' + request.param('name'));
+        }, function (error) {
+            response.render('oops', {error: error});
+        });
+    }, function (error) {
+        response.render('oops', {error: error});
+    });
+});
+
+app.post('/repos', function (request, response) {
+    response.connection.setTimeout(0);
+
+    git.clone(config.appRoot + '/repos/' + request.param('name'), request.param('repository'), request.param('branch'))
+    .then(function () {
+        response.redirect('/repos/' + request.param('name'));
     }, function (error) {
         response.render('oops', {error: error});
     });
