@@ -111,7 +111,7 @@ module.exports.glue.waitForURLParameter = waitForURLParameter = function (page, 
 			}
 		}
 		return false;
-	}, {parameter: parameter, value: value}, function () {console.log('URL is ' + page.url);}], delay, pollingInterval, timeout);
+	}, {parameter: parameter, value: value}], delay, pollingInterval, timeout);
 };
 
 var willWaitForUrlParameter;

@@ -63,6 +63,8 @@ var willInstallModule = function (moduleName) {
 		}
 		else
 		{
+			console.log('Got the link to click to install: ' + moduleName);
+			console.log('Now wait and see...');
 			var elapsed = 0;
 			var dt = 500;
 			var interval = setInterval(function () {
@@ -90,7 +92,7 @@ var willInstallModule = function (moduleName) {
 						d.reject();
 					}
 				}
-				else if (interval > elapsed)
+				else if (elapsed > 60000)
 				{
 					clearInterval(interval);
 					d.reject('Module installation timed out: ' + moduleName);
