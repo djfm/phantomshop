@@ -46,6 +46,8 @@ var metaWaitFor = function metaWaitFor(page, predicate, delay, pollingInterval, 
 
 			var ok = page.evaluate(predicate[0], predicate[1]);
 
+			//console.log('delay:', delay);
+
 			if (ok)
 			{
 				clearInterval(interval);

@@ -217,6 +217,20 @@ page.open(argv.url, function () {
 		checkDB,
 		I.willTakeScreenshot(page, argv.screenshots, '5_installer_check_db'),
 		clickNext,
+		function () {
+			var d = new Deferred();
+
+			/*
+			var n = 0;
+			setInterval(function () {
+				n++;
+				console.log('Takin screenshot while install: ' + n);
+				I.takeScreenshot(page, argv.screenshots, '7_middle_of_install_'+n);
+			}, 2000);*/
+
+			d.resolve();
+			return d.promise;
+		},
 		U.willWaitFor(page, 'a.BO', 'visible'),
 		U.willDelay(),
 		I.willTakeScreenshot(page, argv.screenshots, '6_installer_done')
