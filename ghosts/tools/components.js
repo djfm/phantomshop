@@ -46,6 +46,8 @@ var metaWaitFor = function metaWaitFor(page, predicate, delay, pollingInterval, 
 
 			var ok = page.evaluate(predicate[0], predicate[1]);
 
+			//console.log('delay:', delay);
+
 			if (ok)
 			{
 				clearInterval(interval);
@@ -88,7 +90,7 @@ module.exports.glue.willWaitFor = willWaitFor = function (page, selector, kind, 
 };
 
 var waitForURLParameter;
-module.exports.glue.waitForURLParameter = waitForURLParameter = function (parameter, value, delay, pollingInterval, timeout)
+module.exports.glue.waitForURLParameter = waitForURLParameter = function (page, parameter, value, delay, pollingInterval, timeout)
 {
 	return metaWaitFor(page, [function (args) {
 		var parts = window.location.href.split('?');
@@ -111,14 +113,14 @@ module.exports.glue.waitForURLParameter = waitForURLParameter = function (parame
 			}
 		}
 		return false;
-	}, {parameter: parameter, value: value}, function () {console.log('URL is ' + page.url);}], delay, pollingInterval, timeout);
+	}, {parameter: parameter, value: value}], delay, pollingInterval, timeout);
 };
 
 var willWaitForUrlParameter;
-module.exports.glue.willWaitForUrlParameter = function (parameter, value)
+module.exports.glue.willWaitForUrlParameter = function (page, parameter, value)
 {
 	return function () {
-		waitForURLParameter(parameter, value);
+		return waitForURLParameter(page, parameter, value);
 	};
 };
 
