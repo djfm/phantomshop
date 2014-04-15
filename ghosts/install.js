@@ -16,11 +16,11 @@ var defaultDelay = 500;
 
 var settings = {
 	// Non technical info
-	language: argv.language || 'fr',
+	language: argv.language || 'en',
 	shopName: argv.shopName || 'My Shop',
 	activityId: argv.activityId || 16, // Telecoms
 	dbMode: argv.dbMode || 'full', // also possible: 'lite' => No demo products,
-	countryCode: argv.countryCode || 'fr',
+	countryCode: argv.countryCode || 'us',
 	timeZone: argv.timeZone || 'Europe/Paris',
 	firstname: argv.firstname || 'John',
 	lastname: argv.lastname || 'Doe',
