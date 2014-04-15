@@ -188,6 +188,18 @@ app.get('/shops/:folderName', function (request, response) {
     });
 });
 
+app.post('/shops/:folderName/delete', function (request, response) {
+    withShop(request.param('folderName')).then(function (shop) {
+        shop.erase().then(function () {
+            response.redirect('/shops/');
+        }, function (error) {
+            response.render('oops', {error: error});
+        });
+    }, function (error) {
+        response.render('oops', {error: error});
+    });
+});
+
 app.post('/start/:folderName', function (request, response) {
     seq([
         withShop,
@@ -250,7 +262,7 @@ app.post('/repos/:name/pull', function (request, response) {
 app.post('/repos', function (request, response) {
     response.connection.setTimeout(0);
 
-    git.clone(config.appRoot + '/repos/' + request.param('name'), request.param('repository'), request.param('branch'))
+    git.clone(config.appRoot + '/repos/' + request.param('name'), request.param('repository'), request.param('branch'), request.param('submodules_branch'))
     .then(function () {
         response.redirect('/repos/' + request.param('name'));
     }, function (error) {

@@ -8,5 +8,6 @@ module.exports = {
 	mysqlHost: 'localhost',
 	mysqlUser: 'phantomshop',
 	mysqlPassword: '',
-	mysqlDatabase: 'phantomshop'
+	mysqlDatabase: 'phantomshop',
+	listenOn: '192.168.10.78'
 };
