@@ -42,13 +42,18 @@ var willInstallModule = function (moduleName) {
 				a = $(a);
 				if (exp.exec(a.attr('href')))
 				{
-					found = a;
+					found = a.attr('href');
+					return false;
+				}
+				else if (exp.exec(a.attr('data-link')))
+				{
+					found = a.attr('data-link');
 					return false;
 				}
 			});
 			if (found)
 			{
-				window.location = found.attr('href');
+				window.location = found;
 				return true;
 			}
 			else
