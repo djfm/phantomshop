@@ -210,6 +210,7 @@ module.exports.actions.willClickMenuItem = willClickMenuItem = function (page, c
 var logInBO;
 module.exports.actions.logInBO = logInBO = function (page, params)
 {
+	console.log('Logging in to the Back-Office...');
 	var d = new Deferred();
 
 	waitFor(page, '#email').then(function () {
@@ -221,13 +222,11 @@ module.exports.actions.logInBO = logInBO = function (page, params)
 
 		if (ok)
 		{
-			console.log('Login parameters were input.');
 			actions.trigger(page, '#login_form button[name=submitLogin]', 'click');
 			waitFor(page, '#footer').then(function () {
-				console.log('Ok, found footer!');
+				console.log('Logged in!');
 				d.resolve();
 			}, function () {
-				console.log('Did not see footer, giving up.');
 				d.reject();
 			});
 		}
