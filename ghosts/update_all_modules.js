@@ -4,6 +4,7 @@ var system		= require('system');
 var	argv		= require('minimist')(system.args);
 var page		= require('webpage').create();
 var seq			= require('promised-io/promise').seq;
+var Deferred	= require('promised-io/promise').Deferred;
 
 var components = require('./tools/components.js');
 var I = components.actions;
@@ -28,11 +29,33 @@ page.open(argv.url, function () {
 		I.willClickMenuItem(page, 'AdminModules'),
 		U.willWaitFor(page, '#desc-module-update-all, #desc-module-check-and-update-all', 'visible'),
 		function () {
-			page.evaluate(function () {
-				window.location.href = $('#desc-module-update-all, #desc-module-check-and-update-all').attr('href');
+
+			var href = page.evaluate(function () {
+				var href = $('#desc-module-update-all, #desc-module-check-and-update-all').attr('href');
+				window.location.href = href;
+				return href;
 			});
 
-			return U.waitFor(page, 'div.alert.alert-success');
+			var d = new Deferred();
+
+			var dt = 2000;
+			var elapsed = 0;
+			var timeout = 60000;
+			var interval = setInterval(function () {
+				var href = page.evaluate(function () {
+					return $('#desc-module-update-all, #desc-module-check-and-update-all').attr('href');
+				});
+				if (href && href.indexOf("&update=") === -1)
+				{
+					d.resolve();
+				}
+				else if (elapsed > timeout)
+				{
+					d.reject('Update seems unsuccessful after '+timeout+'ms');
+				}
+			}, dt);
+
+			return d.promise;
 		}
 	]).then(function () {
 		console.log('Good!');
